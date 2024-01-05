@@ -75,11 +75,30 @@ function viewAllDepartments() {
 	});
 }
 
+function viewAllRoles() {
+	db.query('SELECT * FROM roles', (err, roles) => {
+		roles ? tableDisplay(roles) : console.log('\nNone Found\n');
+	});	
+}
+
+function viewAllEmployees() {
+	db.query('SELECT * FROM employees', (err, employees) => {
+		roles ? tableDisplay(employees) : console.log('\nNone Found\n');
+	});
+}
+
 async function run() {
 	const { action } = await promptAction();
-	
-	if (action === "View all departments") {
-		viewAllDepartments();
+	switch (action) {
+		case "View all departments":
+			viewAllDepartments();
+			break;
+		case "View all roles":
+			viewAllRoles();
+			break;
+		case "View all employees":
+			viewAllEmployees();
+			break;
 	}
 }
 
