@@ -11,38 +11,7 @@ const db = mysql.createConnection(
 	console.log(`Connected to the business_db database.`)
 );
 
-function prettyDisplay(column_names=[], columns=[]) {
-
-	if (column_names.length !== columns.length) {
-		throw Error('The number of column names must equal the number of columns');
-	}
-
-	console.log(columns);
-	// Create an array containing the length of each individual column in the columns array,
-	// then check if each column is the same length (or else we raise an error)
-	const nEntries = columns[0].length;
-	if (!columns.map((column) => column.length).every((column_length => column_length === nEntries))) {
-		throw Error("The length of each column in the columns array should be equal");
-	}
-	
-	function getStringLength(object) {
-		return typeof(object) === "string" ? object.length : object.toString().length;
-	}
-
-	// An array containing the max length of entries in each column
-	const maxLengths = columns.forEach((column, index) => {
-		return Math.max(getStringLength(column_names[index], ...column.map((e) => getStringLength(e))));
-	});
-
-	console.log(`\n${column_names.join(' ')}`);
-	console.log(maxLengths.map((n) => '-'.repeat(n)).join(' '));
-
-	let i = 0;
-	do {
-		console.log(columns.map((column) => column[i]).join(' '));
-	} while (i++ <= nEntries);
-}
-
+// helper function for getting the string length for just about any object
 function getStringLength(object) {
 	if (object === null) {
 		return 4;
@@ -59,18 +28,12 @@ function getStringLength(object) {
 	}
 }
 
+// Please god don't make me write this again
+// This is my take on displaying tabular data (i.e. in a similar fashion to MySQL)
 function tableDisplay(resultsArray) {
 	if (!resultsArray.length) {
 		return;
 	}
-	//const firstEntry = resultsArray[0];
-	//const columnNames = Object.keys(firstEntry);
-
-	// Create an array of the max length for each column. Initalized with zero
-	//const maxLengths = new Array(columnNames.length).fill(0);
-
-
-
 	let columnNames
 	const maxLengths = new Map();
 	for (const result of resultsArray) {
@@ -84,23 +47,11 @@ function tableDisplay(resultsArray) {
 			maxLengths.set(columnName, Math.max(maxLengths.get(columnName), getStringLength(columnEntry)));
 		}
 	}
-	/*
-	columnNames.forEach((name, index) => {
-		maxLengths[index]
-	});
-	*/
-
-	//const maxLengths = new Map(columnNames.map((name) => [name, getStringLength(name)]));
-
-	/*
-	const maxLengths = columns.forEach((column, index) => {
-		return Math.max(getStringLength(columnNames[index], ...column.map((e) => getStringLength(e))));
-	});
-	*/
-	console.log(`\n${columnNames.join(' ')}`);
-	//console.log(maxLengths.values().map((n) => '-'.repeat(n)).join(' '));
-	//maxLengths.forEach((name, n) => console.log('-'.repeat(n)));
-	//console.log(maxLengths.map((n) => '-'.repeat(n)).join(' '));
+	console.log(columnNames.map((name) => `${name}${' '.repeat(maxLengths.get(name) - name.length + 1)}`).join(''));
+	console.log(columnNames.map((name) => '-'.repeat(maxLengths.get(name))).join(' '));
+	for (const result of resultsArray) {
+		console.log(Object.entries(result).map(([k, v]) => `${v}${' '.repeat(maxLengths.get(k) - getStringLength(v) + 1)}`).join(''));
+	}
 }
 
 
@@ -120,10 +71,7 @@ async function promptAction() {
 
 function viewAllDepartments() {
 	db.query('SELECT * FROM departments', (err, depts) => {
-		tableDisplay(depts);
-		// console.table(depts, ['id', 'name']);
-		//console.log('\nid name\n-- -----------');
-		//depts.forEach((dept) => console.log(`${dept.id}  ${dept.name}`));
+		depts ? tableDisplay(depts) : console.log('\nNone Found\n');
 	});
 }
 
