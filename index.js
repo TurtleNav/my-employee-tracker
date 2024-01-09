@@ -152,6 +152,10 @@ async function addADepartment() {
 }
 
 async function addARole() {
+
+	const departments = await MySQLQueryPromise('SELECT * FROM departments');
+
+
 	const questions = [
 		{
 			message: "What is the name of the role?",
@@ -175,11 +179,14 @@ async function addARole() {
 			message: "Which department does this role belong to?",
 			name: "department",
 			type: "list",
-			choices: (await MySQLQueryPromise('SELECT * FROM departments')).map((department) => department.name)
+			choices: departments.map((department) => department.name)
 		}
 	]
 	const { title, salary, department } = await inquirer.prompt(questions);
-	db.query("INSERT INTO roles SET title = ?, salary = ?", [title, salary], (err) => {
+
+	const departmentID = (await MySQLQueryPromise('SELECT id FROM departments WHERE name = ?', department))[0].id;
+
+	db.query("INSERT INTO roles SET title = ?, salary = ?, department_id = ?", [title, salary, departmentID], (err) => {
 		if (!err) {
 			console.log(`Added ${title} to the database`);
 		} else {
