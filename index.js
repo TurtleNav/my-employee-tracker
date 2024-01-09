@@ -11,6 +11,56 @@ const db = mysql.createConnection(
 	console.log(`Connected to the business_db database.`)
 );
 
+function MySQLQueryPromise(query, ...args) {
+	return new Promise((resolve, reject) => {
+		db.query(query, ...args, (err, result) => {
+			if (err) {
+				throw new Error(err);
+			}
+			resolve(result);
+		});
+	});
+}
+
+db.querySync = async function() {return await async function() {
+	return await MySQLQueryPromise();
+}}
+
+
+
+async function getPromiseQuery(query, ...args) {
+	let promise = new Promise((resolve, reject) => {
+		db.query(query, ...args, (err, result) => {
+			if (err) {
+				throw new Error(err);
+			}
+			resolve(result);
+		});
+	});
+	return await promise;
+}
+
+
+// A helper function for making synchronous queries i.e. whenever we need to
+// manipulate the data from the query
+db.querySync = async (query, ...args) => await getPromiseQuery(query, ...args)
+
+
+/*
+db.querySync = async function(query, ...args) {
+	const data = await new Promise((resolve, reject) => {
+		db.query(query, ...args, (err, result) => {
+			if (err) {
+				throw new Error(err);
+			}
+			resolve(result);
+		});
+	});
+	return data;
+}
+*/
+
+
 // helper function for getting the string length for just about any object
 function getStringLength(object) {
 	if (object === null) {
@@ -87,6 +137,57 @@ function viewAllEmployees() {
 	});
 }
 
+async function addADepartment() {
+	const question = [{
+		message: "What is the name of the department?",
+		name: "department",
+		type: "prompt"
+	}]
+	const { department } = await inquirer.prompt(question);
+	db.query("INSERT INTO departments SET name = ?", department, (err) => {
+		if (!err) {
+			console.log(`Added ${department} to the database`);
+		}
+	});
+}
+
+async function addARole() {
+	const questions = [
+		{
+			message: "What is the name of the role?",
+			name: "title",
+			type: "prompt",
+			validate: (input) => (input.length <= 30)
+		},
+		{
+			message: "What is the salary of the role?",
+			name: "salary",
+			type: "prompt",
+			// Salary validator function:
+			// must contain only numbers (containing 0,1,2,3,4,5,6,7,8,9)
+			// Must be between 10,000 and 1,000,000
+			validate: (input) => {
+				const value = parseInt(input);
+				return isNaN(value) ? false : ((value > 9999) && (value < 1000000));
+			}
+		},
+		{
+			message: "Which department does this role belong to?",
+			name: "department",
+			type: "list",
+			choices: (await MySQLQueryPromise('SELECT * FROM departments')).map((department) => department.name)
+		}
+	]
+	const { title, salary, department } = await inquirer.prompt(questions);
+	db.query("INSERT INTO roles SET title = ?, salary = ?", [title, salary], (err) => {
+		if (!err) {
+			console.log(`Added ${title} to the database`);
+		} else {
+			console.error(err);
+		}
+	});
+}
+
 async function run() {
 	const { action } = await promptAction();
 	switch (action) {
@@ -99,8 +200,25 @@ async function run() {
 		case "View all employees":
 			viewAllEmployees();
 			break;
+		// The 'add a X' series of queries are themselves an inquirer prompt
+		case "Add a department":
+			addADepartment()
+			break;
+		case "Add a role":
+			addARole();
+			break;
 	}
 }
 
+
+
+
+async function test() {
+	console.log(db.querySync);
+	const x = await MySQLQueryPromise('SELECT * FROM departments');
+	console.log('x -> ', x);
+}
+//test();
+//console.log('blah -> ', blah);
 run();
 
