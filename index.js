@@ -215,8 +215,6 @@ const questions = {
 	},
 
 	addEmployeePrompt: async () => {
-		console.log('eherewr')
-
 		// need roles managers(employees) to formulate our questions
 		const roles = await MySQLQueryPromise('SELECT * FROM departments')
 
@@ -241,14 +239,14 @@ const questions = {
 	]
 	const managerData = await MySQLQueryPromise('SELECT * FROM employees');
 	// Handle the situation where there are no employees to be manager
-		if (managerData) {
+		if (managerData.length) {
 			managers = managerData.map((employee) => `${employee.first_name} ${employee.last_name}`);
 			questions.push({
 				type: "list",
 				message: "who is the employee's manager?",
 				name: "manager",
 				choices: managers
-			})
+			});
 		}
 
 	return inquirer.prompt(questions).then(async({firstName, lastName, role, manager}) => {
@@ -256,9 +254,9 @@ const questions = {
 		if (manager) {
 			// only set manager if one exists
 			const managerID = (await MySQLQueryPromise('SELECT id FROM employees WHERE first_name = ? AND last_name = ?', manager.split(' ')))[0].id;
-			addAEmployee(firstName, lastName, roleID, managerID);
+			actions.addAEmployee(firstName, lastName, roleID, managerID);
 		} else {
-			addAEmployee(firstName, lastName, roleID);
+			actions.addAEmployee(firstName, lastName, roleID);
 		}
 	})
 	},
@@ -268,7 +266,6 @@ const questions = {
 		await addEmployeePrompt();
 	}
 }
-
 
 // main entry point
 async function run(prompt) {
