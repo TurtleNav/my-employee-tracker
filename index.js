@@ -22,44 +22,9 @@ function MySQLQueryPromise(query, ...args) {
 	});
 }
 
-db.querySync = async function() {return await async function() {
-	return await MySQLQueryPromise();
-}}
-
-
-
-async function getPromiseQuery(query, ...args) {
-	let promise = new Promise((resolve, reject) => {
-		db.query(query, ...args, (err, result) => {
-			if (err) {
-				throw new Error(err);
-			}
-			resolve(result);
-		});
-	});
-	return await promise;
-}
-
-
 // A helper function for making synchronous queries i.e. whenever we need to
 // manipulate the data from the query
 db.querySync = async (query, ...args) => await getPromiseQuery(query, ...args)
-
-
-/*
-db.querySync = async function(query, ...args) {
-	const data = await new Promise((resolve, reject) => {
-		db.query(query, ...args, (err, result) => {
-			if (err) {
-				throw new Error(err);
-			}
-			resolve(result);
-		});
-	});
-	return data;
-}
-*/
-
 
 // helper function for getting the string length for just about any object
 function getStringLength(object) {
@@ -103,48 +68,72 @@ function tableDisplay(resultsArray) {
 		console.log(Object.entries(result).map(([k, v]) => `${v}${' '.repeat(maxLengths.get(k) - getStringLength(v) + 1)}`).join(''));
 	}
 }
-async function addARole() {
 
-	const departments = await MySQLQueryPromise('SELECT * FROM departments');
+const actions = {
+	viewAllDepartments: () => {
+		db.query('SELECT * FROM departments', (err, depts) => {
+			if (err) throw err;
+			depts ? tableDisplay(depts) : console.log('\nNone Found\n');
+		});
+	},
 
+	viewAllRoles: () => {
+		db.query('SELECT * FROM roles', (err, roles) => {
+			if (err) throw err;
+			roles ? tableDisplay(roles) : console.log('\nNone Found\n');
+		});	
+	},
+	
+	viewAllEmployees: () => {
+		db.query('SELECT * FROM employees', (err, employees) => {
+			if (err) throw err;
+			employees.length ? tableDisplay(employees) : console.log('\nNone Found\n');
+		});
+	},
 
-	const questions = [
-		{
-			message: "What is the name of the role?",
-			name: "title",
-			type: "prompt",
-			validate: (input) => (input.length <= 30)
-		},
-		{
-			message: "What is the salary of the role?",
-			name: "salary",
-			type: "prompt",
-			// Salary validator function:
-			// must contain only numbers (containing 0,1,2,3,4,5,6,7,8,9)
-			// Must be between 10,000 and 1,000,000
-			validate: (input) => {
-				const value = parseInt(input);
-				return isNaN(value) ? false : ((value > 9999) && (value < 1000000));
-			}
-		},
-		{
-			message: "Which department does this role belong to?",
-			name: "department",
-			type: "list",
-			choices: departments.map((department) => department.name)
-		}
-	]
-	const { title, salary, department } = await inquirer.prompt(questions);
+	addADepartment: (department) => {
+		console.log(`department -> ${department}`)
+		db.query("INSERT INTO departments SET name = ?", department, (err) => {
+				if (!err) {
+					console.log(`\nAdded ${department} to the database\n`);
+				} else {
+					console.error(err);
+				}
+			});	
+	},
 
-	const departmentID = (await MySQLQueryPromise('SELECT id FROM departments WHERE name = ?', department))[0].id;
-
-	db.query("INSERT INTO roles SET title = ?, salary = ?, department_id = ?", [title, salary, departmentID], (err) => {
+	addARole: (title, salary, departmentID) => {
+		db.query("INSERT INTO roles SET title = ?, salary = ?, department_id = ?", [title, salary, departmentID], (err) => {
 		if (!err) {
 			console.log(`Added ${title} to the database`);
 		} else {
 			console.error(err);
 		}
-	});
+		});
+	},
+
+	// separately handle if manager argument is provided or not
+	addAEmployee: (firstName, lastName, roleID, managerID) => {
+		if (managerID) {
+			db.query("INSERT INTO employees SET first_name = ?, last_name = ?, role_id = ?, manager_id = ?",
+			[firstName, lastName, roleID, managerID], (err) => {
+				if (err) {
+					console.log(`Added ${firstName} ${lastName} to the database`);
+				} else {
+					console.error(err)
+				}
+			});
+		} else {
+			db.query("INSERT INTO employees SET first_name = ?, last_name = ?, role_id = ?",
+			[firstName, lastName, roleID, managerID], (err) => {
+				if (err) {
+					console.log(`Added ${firstName} ${lastName} to the database`);
+				} else {
+					console.error(err)
+				}
+			});
+		}
+	}
 }
 
 const questions = {
@@ -186,53 +175,100 @@ const questions = {
 			type: "prompt"
 		}]
 		return inquirer.prompt(question).then(({department}) => {
-			db.query("INSERT INTO departments SET name = ? WHERE NOT EXISTS", department, (err) => {
-				if (!err) {
-					console.log(`Added ${department} to the database`);
+			actions.addADepartment(department);
+		});
+	},
+
+	addARolePrompt: async () => {
+		// Need somehow a means of extracting the global list of departments
+		const departments = await MySQLQueryPromise('SELECT * FROM departments');
+		const questions = [
+			{
+				message: "What is the name of the role?",
+				name: "title",
+				type: "prompt",
+				validate: (input) => (input.length <= 30)
+			},
+			{
+				message: "What is the salary of the role?",
+				name: "salary",
+				type: "prompt",
+				// Salary validator function:
+				// must contain only numbers (containing 0,1,2,3,4,5,6,7,8,9)
+				// Must be between 10,000 and 1,000,000
+				validate: (input) => {
+					const value = parseInt(input);
+					return isNaN(value) ? false : ((value > 9999) && (value < 1000000));
 				}
-			});	
-		});
-	}
-}
-
-const actions = {
-	viewAllDepartments: () => {
-		db.query('SELECT * FROM departments', (err, depts) => {
-			if (err) throw err;
-			depts ? tableDisplay(depts) : console.log('\nNone Found\n');
-		});
-	},
-
-	viewAllRoles: () => {
-		db.query('SELECT * FROM roles', (err, roles) => {
-			if (err) throw err;
-			roles ? tableDisplay(roles) : console.log('\nNone Found\n');
-		});	
-	},
-	
-	viewAllEmployees: () => {
-		console.log('heloooooo')
-		db.query('SELECT * FROM employees', (err, employees) => {
-			if (err) throw err;
-			employees.length ? tableDisplay(employees) : console.log('\nNone Found\n');
+			},
+			{
+				message: "Which department does this role belong to?",
+				name: "department",
+				type: "list",
+				choices: departments.map((department) => department.name)
+			}
+		]
+		return inquirer.prompt(questions).then(async({title, salary, department}) => {
+			const departmentID = (await MySQLQueryPromise('SELECT id FROM departments WHERE name = ?', department))[0].id;
+			actions.addARole(title, salary, departmentID);
 		});
 	},
 
-	addADepartment: (department) => {
-		db.query("INSERT INTO departments SET name = ? WHERE NOT EXISTS", department, (err) => {
-				if (!err) {
-					console.log(`Added ${department} to the database`);
-				}
-			});	
-	}
-}
+	addEmployeePrompt: async () => {
+		console.log('eherewr')
 
-// run add a department dialogue
-async function runAddADepartment() {
-	questions.addADepartmentPrompt().then(({department}) => {
-		actions.addADepartment(department);
+		// need roles managers(employees) to formulate our questions
+		const roles = await MySQLQueryPromise('SELECT * FROM departments')
+
+		const questions = [{
+			type: "input",
+			message: "What is the employee's first name?",
+			name: "firstName"
+		},
+		{
+			type: "input",
+			message: "what is the employee's last name?",
+			name: "lastName"
+		},
+		{
+			type: "list",
+			message: "What is the employee's role?",
+			name: "role",
+			choices: roles
+		}
+		// assume by default there are no available managers. Only once we
+		// get employee data is a manager question added here
+	]
+	const managerData = await MySQLQueryPromise('SELECT * FROM employees');
+	// Handle the situation where there are no employees to be manager
+		if (managerData) {
+			managers = managerData.map((employee) => `${employee.first_name} ${employee.last_name}`);
+			questions.push({
+				type: "list",
+				message: "who is the employee's manager?",
+				name: "manager",
+				choices: managers
+			})
+		}
+
+	return inquirer.prompt(questions).then(async({firstName, lastName, role, manager}) => {
+		const roleID = (await MySQLQueryPromise('SELECT id FROM departments WHERE name = ?', role))[0].id;
+		if (manager) {
+			// only set manager if one exists
+			const managerID = (await MySQLQueryPromise('SELECT id FROM employees WHERE first_name = ? AND last_name = ?', manager.split(' ')))[0].id;
+			addAEmployee(firstName, lastName, roleID, managerID);
+		} else {
+			addAEmployee(firstName, lastName, roleID);
+		}
 	})
+	},
+
+	updateEmployeeRole: async () => {
+		// cheaty way of updating an employee's role is by re-passing add employee prompt
+		await addEmployeePrompt();
+	}
 }
+
 
 // main entry point
 async function run(prompt) {
@@ -249,11 +285,17 @@ async function run(prompt) {
 			actions.viewAllEmployees();
 			break;
 		case "Add a department":
+			// question handles more nested prompts
 			await questions.addADepartmentPrompt();
 			break;
 		case "Add a role":
-			actions.addARole();
+			await questions.addARolePrompt();
 			break;
+		case "Add an employee":
+			await questions.addEmployeePrompt();
+			break;
+		case "Update an employee role":
+			await questions.updateEmployeeRole();
 		case "Quit":
 			// use to break out
 			console.log("Goodbye!");
