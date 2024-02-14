@@ -103,54 +103,6 @@ function tableDisplay(resultsArray) {
 		console.log(Object.entries(result).map(([k, v]) => `${v}${' '.repeat(maxLengths.get(k) - getStringLength(v) + 1)}`).join(''));
 	}
 }
-
-
-async function promptAction() {
-	const question = [{
-		message: "What would you like to do?",
-		name: "action",
-		type: "list",
-		choices: [
-			"View all departments", "View all roles", "View all employees",
-			"Add a department", "Add a role", "Add an employee",
-			"Update an employee role", "Quit"
-		]
-	}];
-	return await inquirer.prompt(question);
-}
-
-function viewAllDepartments() {
-	db.query('SELECT * FROM departments', (err, depts) => {
-		depts ? tableDisplay(depts) : console.log('\nNone Found\n');
-	});
-}
-
-function viewAllRoles() {
-	db.query('SELECT * FROM roles', (err, roles) => {
-		roles ? tableDisplay(roles) : console.log('\nNone Found\n');
-	});	
-}
-
-function viewAllEmployees() {
-	db.query('SELECT * FROM employees', (err, employees) => {
-		roles ? tableDisplay(employees) : console.log('\nNone Found\n');
-	});
-}
-
-async function addADepartment() {
-	const question = [{
-		message: "What is the name of the department?",
-		name: "department",
-		type: "prompt"
-	}]
-	const { department } = await inquirer.prompt(question);
-	db.query("INSERT INTO departments SET name = ? WHERE NOT EXISTS", department, (err) => {
-		if (!err) {
-			console.log(`Added ${department} to the database`);
-		}
-	});
-}
-
 async function addARole() {
 
 	const departments = await MySQLQueryPromise('SELECT * FROM departments');
@@ -195,84 +147,7 @@ async function addARole() {
 	});
 }
 
-async function run() {
-	const { action } = await promptAction();
-	switch (action) {
-		case "View all departments":
-			viewAllDepartments();
-			break;
-		case "View all roles":
-			viewAllRoles();
-			break;
-		case "View all employees":
-			viewAllEmployees();
-			break;
-		// The 'add a X' series of queries are themselves an inquirer prompt
-		case "Add a department":
-			await addADepartment()
-			break;
-		case "Add a role":
-			await addARole();
-			break;
-		case "Quit":
-			console.log("\x1b[2J\x1b");
-			console.log("Goodbye!");
-			return;
-	}
-	run();
-}
-
-
-const question1 = [{
-	message: "What would you like to do?",
-	name: "action",
-	type: "list",
-	choices: [
-		"View all departments", "View all roles", "View all employees",
-		"Add a department", "Add a role", "Add an employee",
-		"Update an employee role", "Quit"
-	]
-}];
-
-async function run2() {
-	inquirer.prompt(question1).then(({action}) => {
-		switch (action) {
-			case "View all departments":
-				viewAllDepartments();
-				break;
-			case "View all roles":
-				viewAllRoles();
-				break;
-			case "View all employees":
-				viewAllEmployees();
-				break;
-			case "Add a department":
-				addADepartment()
-				break;
-			case "Quit":
-				// use to break out but isn't an actual error
-				const quitError = new Error();
-				quitError.name = "quitError"
-				throw quitError;
-		}
-	}).then((data) => {
-		console.log(`data -> ${data}`);
-		if (!data) {
-			run2();
-		}
-	}).catch((err) => {
-		// fake error used as a quit event
-		if (err.name === "quitError") {
-			console.log("Goodbye!");
-			process.exit();
-		}
-		// genuine errors should be logged
-		console.error(err)
-	});
-}
-
 const questions = {
-
 	// The very first question to prompt the user with. Subsequent prompts
 	// will use `subsequentPrompt` which is more-or-less this question 
 	// with a different prompt
@@ -308,19 +183,80 @@ const questions = {
 const actions = {
 	viewAllDepartments: () => {
 		db.query('SELECT * FROM departments', (err, depts) => {
+			if (err) throw err;
 			depts ? tableDisplay(depts) : console.log('\nNone Found\n');
 		});
 	},
 
 	viewAllRoles: () => {
 		db.query('SELECT * FROM roles', (err, roles) => {
+			if (err) throw err;
 			roles ? tableDisplay(roles) : console.log('\nNone Found\n');
 		});	
 	},
 	
 	viewAllEmployees: () => {
+		console.log('heloooooo')
 		db.query('SELECT * FROM employees', (err, employees) => {
-			roles ? tableDisplay(employees) : console.log('\nNone Found\n');
+			if (err) throw err;
+			employees.length ? tableDisplay(employees) : console.log('\nNone Found\n');
+		});
+	},
+
+	addADepartment: async () => {
+		const question = [{
+			message: "What is the name of the department?",
+			name: "department",
+			type: "prompt"
+		}]
+		inquirer.prompt(question).then(({department}) => {
+			db.query("INSERT INTO departments SET name = ? WHERE NOT EXISTS", department, (err) => {
+				if (!err) {
+					console.log(`Added ${department} to the database`);
+				}
+			});	
 		});
 	}
 }
+
+// main entry point
+async function run(prompt) {
+	prompt().then(({action}) => {
+		switch (action) {
+			case "View all departments":
+				actions.viewAllDepartments();
+				break;
+			case "View all roles":
+				actions.viewAllRoles();
+				break;
+			case "View all employees":
+				actions.viewAllEmployees();
+				break;
+			case "Add a department":
+				actions.addADepartment().then((data) => console.log(data));
+				break;
+			case "Add a role":
+				actions.addARole();
+				break;
+			case "Quit":
+				// use to break out but isn't an actual error
+				const quitError = new Error();
+				quitError.name = "quitError"
+				throw quitError;
+		}
+	}).then((data) => {
+		if (!data) {
+			run(questions.subsequentPrompt);
+		}
+	}).catch((err) => {
+		// fake error used as a quit event
+		if (err.name === "quitError") {
+			console.log("Goodbye!");
+			process.exit();
+		}
+		// genuine errors should be logged
+		console.error(err)
+	});
+}
+
+run(questions.firstPrompt);
