@@ -271,5 +271,56 @@ async function run2() {
 	});
 }
 
-run2();
+const questions = {
 
+	// The very first question to prompt the user with. Subsequent prompts
+	// will use `subsequentPrompt` which is more-or-less this question 
+	// with a different prompt
+	firstPrompt: () => {
+		const question = [{
+			message: "What would you like to do?",
+			name: "action",
+			type: "list",
+			choices: [
+				"View all departments", "View all roles", "View all employees",
+				"Add a department", "Add a role", "Add an employee",
+				"Update an employee role", "Quit"
+			]
+			}];
+			return inquirer.prompt(question);
+	},
+
+	subsequentPrompt: () => {
+		const question = [{
+			message: "Is there anything else you would you like to do?",
+			name: "action",
+			type: "list",
+			choices: [
+				"View all departments", "View all roles", "View all employees",
+				"Add a department", "Add a role", "Add an employee",
+				"Update an employee role", "Quit"
+			]
+			}];
+			return inquirer.prompt(question);
+	},
+}
+
+const actions = {
+	viewAllDepartments: () => {
+		db.query('SELECT * FROM departments', (err, depts) => {
+			depts ? tableDisplay(depts) : console.log('\nNone Found\n');
+		});
+	},
+
+	viewAllRoles: () => {
+		db.query('SELECT * FROM roles', (err, roles) => {
+			roles ? tableDisplay(roles) : console.log('\nNone Found\n');
+		});	
+	},
+	
+	viewAllEmployees: () => {
+		db.query('SELECT * FROM employees', (err, employees) => {
+			roles ? tableDisplay(employees) : console.log('\nNone Found\n');
+		});
+	}
+}
