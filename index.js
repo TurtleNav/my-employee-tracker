@@ -113,7 +113,7 @@ async function promptAction() {
 		choices: [
 			"View all departments", "View all roles", "View all employees",
 			"Add a department", "Add a role", "Add an employee",
-			"Update an employee role"
+			"Update an employee role", "Quit"
 		]
 	}];
 	return await inquirer.prompt(question);
@@ -144,7 +144,7 @@ async function addADepartment() {
 		type: "prompt"
 	}]
 	const { department } = await inquirer.prompt(question);
-	db.query("INSERT INTO departments SET name = ?", department, (err) => {
+	db.query("INSERT INTO departments SET name = ? WHERE NOT EXISTS", department, (err) => {
 		if (!err) {
 			console.log(`Added ${department} to the database`);
 		}
@@ -209,23 +209,67 @@ async function run() {
 			break;
 		// The 'add a X' series of queries are themselves an inquirer prompt
 		case "Add a department":
-			addADepartment()
+			await addADepartment()
 			break;
 		case "Add a role":
-			addARole();
+			await addARole();
 			break;
+		case "Quit":
+			console.log("\x1b[2J\x1b");
+			console.log("Goodbye!");
+			return;
 	}
+	run();
 }
 
 
+const question1 = [{
+	message: "What would you like to do?",
+	name: "action",
+	type: "list",
+	choices: [
+		"View all departments", "View all roles", "View all employees",
+		"Add a department", "Add a role", "Add an employee",
+		"Update an employee role", "Quit"
+	]
+}];
 
-
-async function test() {
-	console.log(db.querySync);
-	const x = await MySQLQueryPromise('SELECT * FROM departments');
-	console.log('x -> ', x);
+async function run2() {
+	inquirer.prompt(question1).then(({action}) => {
+		switch (action) {
+			case "View all departments":
+				viewAllDepartments();
+				break;
+			case "View all roles":
+				viewAllRoles();
+				break;
+			case "View all employees":
+				viewAllEmployees();
+				break;
+			case "Add a department":
+				addADepartment()
+				break;
+			case "Quit":
+				// use to break out but isn't an actual error
+				const quitError = new Error();
+				quitError.name = "quitError"
+				throw quitError;
+		}
+	}).then((data) => {
+		console.log(`data -> ${data}`);
+		if (!data) {
+			run2();
+		}
+	}).catch((err) => {
+		// fake error used as a quit event
+		if (err.name === "quitError") {
+			console.log("Goodbye!");
+			process.exit();
+		}
+		// genuine errors should be logged
+		console.error(err)
+	});
 }
-//test();
-//console.log('blah -> ', blah);
-run();
+
+run2();
 
