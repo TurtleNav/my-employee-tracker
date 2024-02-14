@@ -178,6 +178,21 @@ const questions = {
 			}];
 			return inquirer.prompt(question);
 	},
+
+	addADepartmentPrompt: () => {
+		const question = [{
+			message: "What is the name of the department?",
+			name: "department",
+			type: "prompt"
+		}]
+		return inquirer.prompt(question).then(({department}) => {
+			db.query("INSERT INTO departments SET name = ? WHERE NOT EXISTS", department, (err) => {
+				if (!err) {
+					console.log(`Added ${department} to the database`);
+				}
+			});	
+		});
+	}
 }
 
 const actions = {
@@ -203,60 +218,49 @@ const actions = {
 		});
 	},
 
-	addADepartment: async () => {
-		const question = [{
-			message: "What is the name of the department?",
-			name: "department",
-			type: "prompt"
-		}]
-		inquirer.prompt(question).then(({department}) => {
-			db.query("INSERT INTO departments SET name = ? WHERE NOT EXISTS", department, (err) => {
+	addADepartment: (department) => {
+		db.query("INSERT INTO departments SET name = ? WHERE NOT EXISTS", department, (err) => {
 				if (!err) {
 					console.log(`Added ${department} to the database`);
 				}
 			});	
-		});
 	}
+}
+
+// run add a department dialogue
+async function runAddADepartment() {
+	questions.addADepartmentPrompt().then(({department}) => {
+		actions.addADepartment(department);
+	})
 }
 
 // main entry point
 async function run(prompt) {
-	prompt().then(({action}) => {
-		switch (action) {
-			case "View all departments":
-				actions.viewAllDepartments();
-				break;
-			case "View all roles":
-				actions.viewAllRoles();
-				break;
-			case "View all employees":
-				actions.viewAllEmployees();
-				break;
-			case "Add a department":
-				actions.addADepartment().then((data) => console.log(data));
-				break;
-			case "Add a role":
-				actions.addARole();
-				break;
-			case "Quit":
-				// use to break out but isn't an actual error
-				const quitError = new Error();
-				quitError.name = "quitError"
-				throw quitError;
-		}
-	}).then((data) => {
-		if (!data) {
-			run(questions.subsequentPrompt);
-		}
-	}).catch((err) => {
-		// fake error used as a quit event
-		if (err.name === "quitError") {
+	const {action} = await prompt();
+	console.log('\r')
+	switch (action) {
+		case "View all departments":
+			actions.viewAllDepartments();
+			break;
+		case "View all roles":
+			actions.viewAllRoles();
+			break;
+		case "View all employees":
+			actions.viewAllEmployees();
+			break;
+		case "Add a department":
+			await questions.addADepartmentPrompt();
+			break;
+		case "Add a role":
+			actions.addARole();
+			break;
+		case "Quit":
+			// use to break out
 			console.log("Goodbye!");
 			process.exit();
 		}
-		// genuine errors should be logged
-		console.error(err)
-	});
+		console.log('\r\n');
+		run(questions.subsequentPrompt);
 }
 
 run(questions.firstPrompt);
